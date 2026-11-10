@@ -13,3 +13,12 @@
   - **주의점**: 같은 키로 같은 nonce를 두 번 쓰면(특히 GCM) 보안이 무너진다. TLS 1.3은 레코드마다 순번(sequence number)을 IV에 XOR해서 nonce가 겹치지 않게 한다.
 - 대표 AEAD: AES-GCM, ChaCha20-Poly1305, AES-CCM
 - 더 보기: README의 [개념 설명 > 왜 필요한가](README.md#왜-필요한가) 표의 "무결성" 줄, [RFC 8446](https://www.rfc-editor.org/rfc/rfc8446) 5.2절 Record Payload Protection
+
+### Q. RFC 8446은 프로토콜이지?
+- 날짜: 2026-11-10
+- 답: 정확히는 **프로토콜을 정의한 문서(명세서)**다. 프로토콜 자체는 **TLS 1.3**이고, RFC 8446은 "TLS 1.3은 이렇게 동작해야 한다"를 적어 둔 표준 문서다.
+  - **RFC**(Request for Comments)는 인터넷 표준을 만드는 IETF가 발행하는 번호 붙은 문서 시리즈다. 예: RFC 9293 = TCP, RFC 9110 = HTTP 의미론.
+  - 비유하면 **프로토콜 = 게임 규칙**, **RFC = 규칙서 책**이다. OpenSSL, 브라우저 같은 구현체는 이 규칙서를 보고 만든다.
+  - 규칙서는 개정될 수 있다. RFC 8446(2018)은 2026년 7월 **RFC 9846**으로 대체됐지만, 프로토콜 이름과 버전은 그대로 TLS 1.3이고 하위 호환된다.
+  - 그래서 "TLS 1.3을 쓴다"가 맞는 표현이고, "RFC 8446을 쓴다"는 "RFC 8446에 정의된 TLS 1.3을 쓴다"는 뜻이다.
+- 더 보기: [RFC 8446 상태 페이지](https://datatracker.ietf.org/doc/rfc8446/) ("Obsoleted by RFC 9846" 표시), [RFC 9846](https://datatracker.ietf.org/doc/rfc9846/)
