@@ -25,5 +25,5 @@ with socket.create_connection((host, port), timeout=10) as raw:
         print("SAN      :", [v for k, v in cert.get("subjectAltName", ()) if k == "DNS"])
 
         # TODO(직접 해보기): 아래 주석을 풀고 HTTP 요청을 TLS 위로 보내 보자.
-        # tls.sendall(f"HEAD / HTTP/1.1\r\nHost: {host}\r\nConnection: close\r\n\r\n".encode())
-        # print(tls.recv(4096).decode(errors="replace"))
+        tls.sendall(f"HEAD / HTTP/1.1\r\nHost: {host}\r\nConnection: close\r\n\r\n".encode())
+        print(tls.recv(4096).decode(errors="replace"))

@@ -124,3 +124,44 @@
   2. **검증에 실패해도 연결은 계속된다.** 자체 서명 서버에 붙으면 `Verification error: self-signed certificate`가 찍히지만 `CONNECTION ESTABLISHED`이고 종료 코드도 0이다. s_client는 진단 도구라서 일부러 그렇게 동작한다. 실패 시 끊게 하려면 `-verify_return_error`를 붙인다.
   3. **`Verification: OK`는 호스트 이름(SAN)까지 확인한 결과가 아니다.** `-servername evil.com`으로 localhost 인증서 서버에 붙어도 `Verification: OK`가 나왔다. 이름까지 보려면 `-verify_hostname example.com`을 붙여야 하고, 그러면 `Verification error: hostname mismatch`가 나온다. 브라우저, curl, Python `ssl.create_default_context()`는 이름 검증을 기본으로 한다.
 - 더 보기: `man openssl-s_client`, 위의 "SNI는 뭐야?", "SAN이 뭐야?", "AEAD 암호가 뭐야?", "DHE는 뭐야?"
+
+### Q. `-msg` 결과를 보면 클라이언트는 서버에게 Finished를 안 보낸 것 같은데 왜 그래?
+- 날짜: 2026-11-10
+- 답: 보냈다. `>>>`(클라이언트가 보냄) 쪽에 `>>> TLS 1.3, Handshake [length 0034], Finished`가 있다. 그 사이에 끼어 있는 `RecordHeader`, `ChangeCipherSpec`, `InnerContent` 줄 때문에 잘 안 보였을 뿐이다. 길이 `0x34`(52바이트)는 메시지 헤더 4바이트와 SHA-384 해시 48바이트를 더한 값이다. 서버 Finished도 길이가 같다.
+  - `ChangeCipherSpec`: TLS 1.3에서는 의미가 없다. 1.2처럼 보이게 해서 오래된 중간 장비(미들박스)를 통과하려고 보내는 호환용 메시지다.
+  - `InnerContent [length 0001]`: 암호화된 레코드 안에 숨긴 실제 종류(content type) 1바이트다.
+  - Finished 뒤에 나오는 레코드: `echo`가 보낸 줄바꿈(Application Data)과 `close_notify` 알림이다. `</dev/null`로 입력을 주면 Application Data 레코드가 없어지는 것을 확인했다.
+
+### Q. 자체 서명 실습의 `openssl req ...`, `openssl s_server ...` 각 옵션이 무슨 역할이야? s_server는 서버를 여는 거야?
+- 날짜: 2026-11-10
+- 답: `openssl req`는 원래 인증서 서명 요청(CSR)을 만드는 명령이다. `-x509`를 붙이면 CSR 대신 **자기가 서명한 인증서**를 바로 만들고, `-newkey`가 있으면 개인키도 같이 만든다. `s_server`는 맞다. 지정한 포트에서 TLS 서버를 연다(테스트용).
+
+  | 옵션 | 역할 |
+  |---|---|
+  | `-x509` | CSR 대신 자체 서명 인증서를 출력 |
+  | `-newkey ec` | 새 타원곡선(EC) 개인키 생성 |
+  | `-pkeyopt ec_paramgen_curve:P-256` | 곡선을 P-256으로 지정 |
+  | `-nodes` | 개인키를 암호(passphrase)로 잠그지 않음 (no DES. 3.0부터는 `-noenc`가 새 이름) |
+  | `-keyout key.pem` | 개인키 저장 파일 |
+  | `-out cert.pem` | 인증서 저장 파일 |
+  | `-days 7` | 유효기간 7일 |
+  | `-subj "/CN=localhost"` | 주체(Subject) 이름. 대화형 질문 없이 바로 지정 |
+  | `-addext "subjectAltName=DNS:localhost"` | SAN 확장 추가. 클라이언트가 실제로 비교하는 이름 |
+  | `s_server -accept 8443` | 8443 포트에서 접속을 기다림 (기본값 4433) |
+  | `-cert cert.pem -key key.pem` | 서버가 보낼 인증서와, CertificateVerify 서명에 쓸 개인키 |
+  | `-www` | 접속하면 협상 정보를 HTML로 응답 (웹 서버처럼 동작) |
+  | `-tls1_3` | TLS 1.3만 허용 |
+
+  직접 실행해서 확인한 결과:
+  ```
+  subject=CN=localhost
+  issuer=CN=localhost              ← 주체와 발급자가 같다 = 자체 서명
+  notBefore=Nov 10 ... notAfter=Nov 17 ...   ← -days 7
+  X509v3 Subject Alternative Name: DNS:localhost
+  Private-Key: (256 bit) / NIST CURVE: P-256
+
+  curl https://localhost:9443/                → curl: (60) ... self-signed certificate (18)
+  curl --cacert cert.pem https://localhost:9443/  → -www 응답 HTML(TLSv1.3 암호군 목록 등)
+  ```
+  `--cacert cert.pem`은 "이 인증서를 신뢰 루트로 쳐라"라는 뜻이다. 자체 서명 인증서는 자기 자신이 루트라서, 이것을 신뢰 목록에 넣으면 체인 검증이 통과한다.
+- 더 보기: `man openssl-req`, `man openssl-s_server`, 위의 "SAN이 뭐야?", README의 "인증서는 왜 믿을 수 있나 — 신뢰 체인"
