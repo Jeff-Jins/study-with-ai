@@ -1,19 +1,19 @@
 ---
 name: supervised
-description: AI 지도 학습 세션. 사용자가 "~~ 공부할래", "~~ 공부하자", "~~ 공부하고 싶어"처럼 어떤 주제를 공부하겠다고 하거나, 공부 중인 주제를 "다 했어", "공부 끝", "완료"라고 마칠 때 사용한다. 자료를 조사해 설명과 실습 TODO가 담긴 학습 노트를 study-with-ai 저장소에 만들고, 완료하면 지식나무에 잎을 쌓는다.
+description: AI 지도 학습 세션. 사용자가 "~~ 공부할래", "~~ 공부하자", "~~ 공부하고 싶어", "~~ 알려줘, 공부하게"처럼 어떤 주제를 공부하겠다고 하거나, 공부 중인 주제를 "다 했어", "공부 끝", "완료"라고 마칠 때 사용한다. 자료를 조사해 설명과 실습 TODO가 담긴 학습 노트를 study-with-ai 저장소에 만들고, 완료하면 지식나무에 잎을 쌓는다. 완료 신호는 대화에서 공부 중인 노트가 있을 때만 해당한다.
 ---
 
 # supervised — AI 지도 학습
 
-- 저장소: `~/workspace/study` (GitHub: study-with-ai). **모든 명령은 이 경로에서 실행한다.**
-- 도구: `./grow start "<가지>" "<제목>"`, `./grow done "<노트 경로>" [--force]`, `./grow list`, `./grow refresh`
+- 저장소: `~/workspace/study` (GitHub: study-with-ai). **명령은 아래처럼 절대경로로 실행한다(현재 폴더와 무관).**
+- 도구: `~/workspace/study/grow start "<가지>" "<제목>"`, `~/workspace/study/grow done "<노트 경로>" [--force]`, `~/workspace/study/grow list`, `~/workspace/study/grow refresh`
 
 ## A. 공부 시작 — "X 공부할래"
 
-1. `./grow list`로 공부 중인 노트를 확인한다. 같은 주제가 있으면 이어서 할지 새로 시작할지 묻는다.
+1. `~/workspace/study/grow list`로 공부 중인 노트를 확인한다. 같은 주제가 있으면 이어서 할지 새로 시작할지 묻는다.
 2. **조사**: WebSearch/WebFetch로 공식 문서, 표준, 원저자 자료를 우선해 2–4개 출처를 확인한다. 확인하지 못한 사실은 쓰지 않는다.
-3. **가지 결정**: `find tree -mindepth 1 -type d -not -name '20*'`로 기존 가지를 본다. 기존 가지를 재사용하는 것을 우선하고, 새 가지는 `대주제/중주제[/소주제]` 2–3단계로 만든다. 애매하면 후보 2개를 제시하고 묻는다.
-4. `./grow start "<가지>" "<제목>"`을 실행한다. 출력된 노트 경로를 기억한다.
+3. **가지 결정**: `find ~/workspace/study/tree -mindepth 1 -type d \( -name lab -o -name '20[0-9][0-9]-[0-9][0-9]-[0-9][0-9]-*' \) -prune -o -type d -print 2>/dev/null`로 기존 가지를 본다. 기존 가지를 재사용하는 것을 우선하고, 새 가지는 `대주제/중주제[/소주제]` 2–3단계로 만든다. 애매하면 후보 2개를 제시하고 묻는다.
+4. `~/workspace/study/grow start "<가지>" "<제목>"`을 실행한다. 출력된 노트 경로를 기억한다.
 5. **노트 채우기**: 첫 줄 메타 주석, `# 제목`, `> 가지:` 줄은 건드리지 않고 각 섹션을 채운다.
    - `## 개념 설명` — 왜 필요한지 → 어떻게 동작하는지 → 구체적인 예시. 필요하면 코드나 다이어그램(Mermaid)을 넣는다.
    - `## 핵심 요약` — 3–7개 불릿.
@@ -24,7 +24,7 @@ description: AI 지도 학습 세션. 사용자가 "~~ 공부할래", "~~ 공부
        - 확인: 무엇을 실행/관찰하면 성공인지 (명령어와 기대 결과)
      ```
    - 실습에 코드가 필요하면 노트 폴더의 `lab/`에 시작 파일을 만들고 TODO에서 경로를 언급한다.
-6. 커밋: `git add tree && git commit -m "📝 note: <가지> / <제목>"`
+6. 커밋: `git -C ~/workspace/study add tree && git -C ~/workspace/study commit -m "📝 note: <가지> / <제목>"` (`grow start`가 이미 🌱 커밋을 만들었고, 이 📝 커밋은 채운 내용을 기록한다.)
 7. **채팅 설명**: 핵심을 3–5줄로 설명하고, 노트 경로와 첫 TODO를 안내한다. 노트 전체를 채팅에 붙여넣지 않는다.
 
 ## B. 공부 중
@@ -34,13 +34,13 @@ description: AI 지도 학습 세션. 사용자가 "~~ 공부할래", "~~ 공부
 
 ## C. 공부 완료 — "다 했어"
 
-1. `./grow list`로 대상 노트를 찾는다. 여러 개면 어떤 노트인지 묻는다.
+1. `~/workspace/study/grow list`로 대상 노트를 찾는다. 여러 개면 어떤 노트인지 묻는다.
 2. 노트의 체크 안 된 TODO(`- [ ]`)를 모아 보여주고 각각 했는지 묻는다. 했다고 한 항목만 `- [x]`로 바꾼다.
 3. 안 한 항목이 남으면 지금 완료(`--force`)할지 더 할지 묻는다.
-4. `./grow done "<노트 경로>"`를 실행한다.
-5. 결과(잎 개수)와 GitHub 링크를 알려준다. 링크는 `git remote get-url origin`에서 만든다(`git@github.com:U/R.git` → `https://github.com/U/R`). push가 실패하면 출력된 원인과 해결 방법(SSH 키, PAT 등)을 안내한다.
+4. `~/workspace/study/grow done "<노트 경로>"`를 실행한다.
+5. 결과(잎 개수)와 GitHub 링크를 알려준다. 링크는 `git -C ~/workspace/study remote get-url origin`에서 만든다(`git@github.com:U/R.git`와 `https://github.com/U/R(.git)` 모두 → `https://github.com/U/R`). push가 실패하면 출력된 원인과 해결 방법(SSH 키, PAT 등)을 안내한다.
 
 ## 규칙
 
-- 루트 `README.md`의 `<!-- grow:start -->`~`<!-- grow:end -->` 사이는 직접 고치지 않는다. `./grow refresh`를 쓴다.
-- 노트 폴더 이름이나 위치를 손으로 바꾸지 않는다. 필요하면 사용자와 상의한 뒤 `git mv`와 `./grow refresh`를 쓴다.
+- 루트 `README.md`의 `<!-- grow:start -->`~`<!-- grow:end -->` 사이는 직접 고치지 않는다. `~/workspace/study/grow refresh`를 쓴다.
+- 노트 폴더 이름이나 위치를 손으로 바꾸지 않는다. 필요하면 사용자와 상의한 뒤 `git mv`와 `~/workspace/study/grow refresh`를 쓴다.
