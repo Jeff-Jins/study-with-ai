@@ -181,13 +181,12 @@ def _emit_links(node: _Branch, prefix: str, out: list[str]) -> None:
 def render_block(notes: list[Note]) -> str:
     done = sorted((n for n in notes if n.status == "done"), key=lambda n: (n.done or "", str(n.path)))
     studying = [n for n in notes if n.status != "done"]
-    branches = {n.branch[:i] for n in done for i in range(1, len(n.branch) + 1)}
     dates = [d for n in notes for d in (n.started, n.done) if d]
     last = max(dates) if dates else "-"
 
     out = [
         START_MARK, "",
-        f"> 🍃 잎 **{len(done)}**개 · 🌿 가지 **{len(branches)}**개 · "
+        f"> 🍃 잎 **{len(done)}**개 · "
         f"🌱 공부 중 **{len(studying)}**개 · 📅 최근 공부 {last}",
         "", "## 🌳 지식나무", "",
         "```mermaid", "mindmap", "  root((🌳 study-with-ai))",

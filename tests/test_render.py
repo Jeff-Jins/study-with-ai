@@ -74,7 +74,7 @@ class RenderTest(unittest.TestCase):
         self.assertTrue(self.block.endswith(grow.END_MARK))
 
     def test_stats_line(self):
-        self.assertIn("> 🍃 잎 **2**개 · 🌿 가지 **3**개 · 🌱 공부 중 **1**개 · 📅 최근 공부 2026-11-13", self.block)
+        self.assertIn("> 🍃 잎 **2**개 · 🌱 공부 중 **1**개 · 📅 최근 공부 2026-11-13", self.block)
 
     def test_mindmap_structure(self):
         self.assertIn(
