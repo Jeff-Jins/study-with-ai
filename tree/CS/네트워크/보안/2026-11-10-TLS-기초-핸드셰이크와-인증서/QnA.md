@@ -22,3 +22,18 @@
   - 규칙서는 개정될 수 있다. RFC 8446(2018)은 2026년 7월 **RFC 9846**으로 대체됐지만, 프로토콜 이름과 버전은 그대로 TLS 1.3이고 하위 호환된다.
   - 그래서 "TLS 1.3을 쓴다"가 맞는 표현이고, "RFC 8446을 쓴다"는 "RFC 8446에 정의된 TLS 1.3을 쓴다"는 뜻이다.
 - 더 보기: [RFC 8446 상태 페이지](https://datatracker.ietf.org/doc/rfc8446/) ("Obsoleted by RFC 9846" 표시), [RFC 9846](https://datatracker.ietf.org/doc/rfc9846/)
+
+### Q. SNI는 뭐야?
+- 날짜: 2026-11-10
+- 답: **SNI = Server Name Indication.** 클라이언트가 ClientHello에 "나는 **example.com**에 접속하려고 해"라고 도메인 이름을 적어 보내는 TLS 확장이다.
+  - **왜 필요한가**: 서버 한 대(IP 하나)에 도메인 수백 개가 함께 올라가는 경우가 흔하다(가상 호스팅, CDN). 서버는 핸드셰이크 도중에 **어떤 도메인의 인증서**를 보낼지 정해야 한다. 그런데 HTTP의 `Host` 헤더는 핸드셰이크가 끝난 *뒤에* 암호화돼서 오기 때문에 너무 늦다. 그래서 핸드셰이크 맨 앞인 ClientHello에 이름을 실어 보낸다.
+  - **직접 확인한 것**: 같은 IP(`104.20.23.154`)에 SNI만 바꿔서 붙었더니 서버가 다른 인증서를 줬다.
+    ```
+    $ openssl s_client -connect 104.20.23.154:443 -servername example.com        → subject=CN=example.com
+    $ openssl s_client -connect 104.20.23.154:443 -servername www.cloudflare.com → subject=CN=www.cloudflare.com
+    $ openssl s_client -connect 104.20.23.154:443 -noservername                   → alert handshake failure
+    ```
+    SNI가 없으면 서버가 어떤 인증서를 줄지 몰라서 핸드셰이크를 거부했다.
+  - **코드에서는**: `lab/tls_client.py`의 `wrap_socket(raw, server_hostname=host)`가 SNI를 넣는다. 이 값은 인증서의 SAN과 맞는지 검증하는 데에도 쓰인다.
+  - **한계(프라이버시)**: ClientHello는 평문이라서 네트워크 중간에서 "이 사람이 어느 사이트에 가는지"가 SNI로 보인다. 내용은 암호화돼도 목적지 도메인은 드러나는 것이다. 이를 숨기려는 후속 기술이 **ECH(Encrypted Client Hello)**다.
+- 더 보기: README [개념 설명 > 어떻게 동작하나](README.md#어떻게-동작하나--tls-13-핸드셰이크-1-rtt)의 ClientHello 설명
