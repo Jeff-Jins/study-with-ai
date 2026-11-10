@@ -112,3 +112,7 @@ sequenceDiagram
 - [ ] 버전 협상이 실패하는 경우 보기
   - 실행: 위 서버(`-tls1_3`)를 띄운 채 `echo | openssl s_client -connect localhost:8443 -tls1_2`
   - 확인: `alert protocol version` 오류가 나면 성공. 왜 실패하는지(서버가 1.3만, 클라이언트는 1.2만 제시) 설명할 수 있으면 완료
+
+## 질문과 답
+
+아직 질문이 없어요. 공부하다 생긴 질문은 여기에 쌓여요.
