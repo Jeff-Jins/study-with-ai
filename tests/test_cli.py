@@ -67,6 +67,10 @@ class CliTest(unittest.TestCase):
             "# 3-way handshake\n\n> 가지: CS / 네트워크\n"))
         for h in ("## 개념 설명", "## 핵심 요약", "## 참고자료", "## TODO 실습", "## 질문과 답"):
             self.assertIn(h, text)
+        self.assertIn("[QnA.md](QnA.md)", text)
+        qna = (self.note_dir() / "QnA.md").read_text(encoding="utf-8")
+        self.assertTrue(qna.startswith("# 질문과 답 — 3-way handshake\n"))
+        self.assertEqual(git(self.root, "status", "--porcelain"), "")
         self.assertEqual(self.subjects(), ["🌱 start: CS / 네트워크 / 3-way handshake"])
         self.assertIn("[3-way handshake](", self.root_readme())
 

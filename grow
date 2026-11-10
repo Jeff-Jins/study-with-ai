@@ -280,6 +280,13 @@ NOTE_TEMPLATE = """<!-- supervised: status=studying started={today} -->
 ## TODO 실습
 
 ## 질문과 답
+
+공부하면서 생긴 질문은 [QnA.md](QnA.md)에 정리해요.
+"""
+
+QNA_TEMPLATE = """# 질문과 답 — {title}
+
+> 노트: [README.md](README.md)
 """
 
 
@@ -296,6 +303,7 @@ def start(root: Path, branch: str, title: str, today: str) -> Path:
     note_dir.mkdir(parents=True)
     (note_dir / "README.md").write_text(
         NOTE_TEMPLATE.format(today=today, title=title, branch=" / ".join(parts)), encoding="utf-8")
+    (note_dir / "QnA.md").write_text(QNA_TEMPLATE.format(title=title), encoding="utf-8")
     update_readme(root, scan(root))
     commit(root, f"🌱 start: {' / '.join(parts)} / {title}")
     return note_dir
