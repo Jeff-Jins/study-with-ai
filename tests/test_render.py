@@ -83,6 +83,22 @@ class RenderTest(unittest.TestCase):
             self.block,
         )
 
+    def test_clickable_tree_under_mindmap(self):
+        after = self.block.split("```mermaid")[1].split("```", 1)[1]
+        tree = after.split("## 🌱 공부 중")[0]
+        self.assertIn(
+            "- 🌿 CS\n"
+            "  - 🌿 네트워크\n"
+            "    - 🍃 [TCP (기초) \\[1\\]](tree/CS/%EB%84%A4%ED%8A%B8%EC%9B%8C%ED%81%AC/2026-11-10-tcp/README.md) · 2026-11-11\n"
+            "  - 🌿 운영체제\n"
+            "    - 🍃 [프로세스](tree/CS/%EC%9A%B4%EC%98%81%EC%B2%B4%EC%A0%9C/2026-11-12-proc/README.md) · 2026-11-12\n",
+            tree,
+        )
+        self.assertNotIn("단어", tree)
+
+    def test_empty_tree_has_no_link_list(self):
+        self.assertNotIn("- 🌿", grow.render_block([]))
+
     def test_studying_not_in_mindmap_but_listed(self):
         mermaid = self.block.split("```mermaid")[1].split("```")[0]
         self.assertNotIn("단어", mermaid)

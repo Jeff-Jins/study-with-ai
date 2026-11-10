@@ -139,7 +139,7 @@ README_HEADER = (
 @dataclass
 class _Branch:
     children: dict[str, "_Branch"] = field(default_factory=dict)
-    leaves: list[str] = field(default_factory=list)
+    leaves: list["Note"] = field(default_factory=list)
 
 
 def mermaid_text(s: str) -> str:
@@ -162,7 +162,17 @@ def _emit(node: _Branch, indent: int, out: list[str]) -> None:
         out.append(pad + mermaid_text(name))
         _emit(node.children[name], indent + 2, out)
     for leaf in node.leaves:
-        out.append(pad + "🍃 " + mermaid_text(leaf))
+        out.append(pad + "🍃 " + mermaid_text(leaf.title))
+
+
+def _emit_links(node: _Branch, depth: int, out: list[str]) -> None:
+    """Mermaid 노드는 GitHub에서 클릭이 막혀 있어서, 같은 나무를 링크 목록으로도 그린다."""
+    pad = "  " * depth
+    for name in sorted(node.children):
+        out.append(f"{pad}- 🌿 {md_escape(name)}")
+        _emit_links(node.children[name], depth + 1, out)
+    for leaf in node.leaves:
+        out.append(f"{pad}- 🍃 [{md_escape(leaf.title)}]({_link(leaf)}) · {leaf.done}")
 
 
 def render_block(notes: list[Note]) -> str:
@@ -184,10 +194,14 @@ def render_block(notes: list[Note]) -> str:
         node = top
         for b in n.branch:
             node = node.children.setdefault(b, _Branch())
-        node.leaves.append(n.title)
+        node.leaves.append(n)
     _emit(top, 4, out)
     out += ["```", ""]
-    if not done:
+    if done:
+        out += ["🍃 잎을 누르면 노트로 바로 가요.", ""]
+        _emit_links(top, 0, out)
+        out.append("")
+    else:
         out += ["아직 잎이 없어요. 첫 공부를 마치면 여기에 🍃가 돋아나요.", ""]
 
     out += ["## 🌱 공부 중", ""]
