@@ -198,9 +198,9 @@ def render_block(notes: list[Note]) -> str:
     _emit(top, 4, out)
     out += ["```", ""]
     if done:
-        out += ["🍃 잎을 누르면 노트로 바로 가요.", ""]
+        out += ["<details>", "<summary>🍃 잎 바로가기 (펼치기)</summary>", ""]
         _emit_links(top, 0, out)
-        out.append("")
+        out += ["", "</details>", ""]
     else:
         out += ["아직 잎이 없어요. 첫 공부를 마치면 여기에 🍃가 돋아나요.", ""]
 

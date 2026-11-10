@@ -95,6 +95,8 @@ class RenderTest(unittest.TestCase):
             tree,
         )
         self.assertNotIn("단어", tree)
+        self.assertIn("<details>\n<summary>🍃 잎 바로가기 (펼치기)</summary>\n\n- 🌿 CS\n", tree)
+        self.assertIn(" · 2026-11-12\n\n</details>\n", tree)
 
     def test_empty_tree_has_no_link_list(self):
         self.assertNotIn("- 🌿", grow.render_block([]))
