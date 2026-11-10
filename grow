@@ -217,3 +217,149 @@ def update_readme(root: Path, notes: list[Note]) -> Path:
         text = README_HEADER + block + "\n"
     path.write_text(text, encoding="utf-8")
     return path
+
+
+# ── git ─────────────────────────────────────────────────────────
+
+
+def _git(root: Path, *args: str, check: bool = True) -> subprocess.CompletedProcess:
+    r = subprocess.run(["git", "-C", str(root), *args], capture_output=True, text=True)
+    if check and r.returncode != 0:
+        raise GrowError(f"git {' '.join(args)} 실패:\n{r.stderr.strip()}")
+    return r
+
+
+def commit(root: Path, message: str) -> None:
+    _git(root, "add", "-A", "--", TREE_DIR, "README.md")
+    _git(root, "commit", "-q", "-m", message, "--", TREE_DIR, "README.md")
+
+
+def push(root: Path) -> bool:
+    remotes = _git(root, "remote").stdout.split()
+    if not remotes:
+        print("ℹ️  remote가 없어 push를 건너뜁니다. (git remote add origin <URL>)")
+        return False
+    remote = "origin" if "origin" in remotes else remotes[0]
+    r = _git(root, "push", "-u", remote, "HEAD", check=False)
+    if r.returncode != 0:
+        print(f"⚠️  push 실패 (커밋은 남아 있어요):\n{r.stderr.strip()}", file=sys.stderr)
+        return False
+    return True
+
+
+# ── 명령 ────────────────────────────────────────────────────────
+
+NOTE_TEMPLATE = """<!-- supervised: status=studying started={today} -->
+# {title}
+
+> 가지: {branch}
+
+## 개념 설명
+
+## 핵심 요약
+
+## 참고자료
+
+## TODO 실습
+"""
+
+
+def start(root: Path, branch: str, title: str, today: str) -> Path:
+    root = Path(root).resolve()
+    parts = parse_branch(branch)
+    title = " ".join(title.split())
+    note_dir = root / TREE_DIR / Path(*parts) / f"{today}-{slugify(title)}"
+    if note_dir.exists():
+        raise GrowError(f"이미 있는 노트입니다: {note_dir.relative_to(root)}")
+    note_dir.mkdir(parents=True)
+    (note_dir / "README.md").write_text(
+        NOTE_TEMPLATE.format(today=today, title=title, branch=" / ".join(parts)), encoding="utf-8")
+    update_readme(root, scan(root))
+    commit(root, f"🌱 start: {' / '.join(parts)} / {title}")
+    return note_dir
+
+
+def resolve_note(root: Path, arg: str) -> Path:
+    root = Path(root).resolve()
+    tree = (root / TREE_DIR).resolve()
+    p = Path(arg).expanduser()
+    candidates = [p] if p.is_absolute() else [Path.cwd() / p, root / p, tree / p]
+    for c in candidates:
+        if c.name == "README.md":
+            c = c.parent
+        c = c.resolve()
+        readme = c / "README.md"
+        if (c.is_relative_to(tree) and readme.is_file()
+                and "status" in parse_meta(readme.read_text(encoding="utf-8"))):
+            return c
+    raise GrowError(f"노트를 찾을 수 없습니다: {arg}")
+
+
+def done(root: Path, arg: str, today: str, force: bool = False) -> Note:
+    root = Path(root).resolve()
+    note_dir = resolve_note(root, arg)
+    readme = note_dir / "README.md"
+    text = readme.read_text(encoding="utf-8")
+    meta = parse_meta(text)
+    if meta.get("status") == "done":
+        raise GrowError(f"이미 완료한 노트입니다 ({meta.get('done', '?')})")
+    left = unchecked_todos(text)
+    if left and not force:
+        listing = "\n".join(f"  - [ ] {t}" for t in left)
+        raise GrowError(f"아직 체크 안 된 TODO가 있어요:\n{listing}\n모두 끝냈다면 체크하거나 --force를 붙이세요.")
+    meta["status"] = "done"
+    meta["done"] = today
+    readme.write_text(set_meta(text, meta), encoding="utf-8")
+    notes = scan(root)
+    update_readme(root, notes)
+    rel = note_dir.relative_to(root)
+    note = next(n for n in notes if n.path == rel)
+    commit(root, f"🍃 grow: {' / '.join(note.branch)} / {note.title}")
+    push(root)
+    return note
+
+
+# ── CLI ─────────────────────────────────────────────────────────
+
+
+def main(argv: list[str] | None = None) -> int:
+    ap = argparse.ArgumentParser(prog="grow", description="study-with-ai 지식나무 관리")
+    ap.add_argument("--root", type=Path, default=DEFAULT_ROOT, help=argparse.SUPPRESS)
+    sub = ap.add_subparsers(dest="cmd", required=True)
+    p = sub.add_parser("start", help="학습 노트 만들기 (🌱)")
+    p.add_argument("branch", help='가지 경로. 예: "CS/네트워크/TCP"')
+    p.add_argument("title", help="노트 제목")
+    p = sub.add_parser("done", help="공부 완료 → 나무에 잎 추가 (🍃)")
+    p.add_argument("note", help="노트 폴더 또는 README 경로")
+    p.add_argument("--force", action="store_true", help="체크 안 된 TODO가 있어도 완료")
+    sub.add_parser("refresh", help="루트 README 다시 그리기")
+    sub.add_parser("list", help="공부 중인 노트 보기")
+    args = ap.parse_args(argv)
+
+    root = args.root.resolve()
+    today = dt.date.today().isoformat()
+    try:
+        if args.cmd == "start":
+            d = start(root, args.branch, args.title, today)
+            print(f"🌱 노트를 만들었어요: {d.relative_to(root)}/README.md")
+        elif args.cmd == "done":
+            n = done(root, args.note, today, force=args.force)
+            leaves = sum(1 for x in scan(root) if x.status == "done")
+            print(f"🍃 나무에 잎이 돋았어요: {' / '.join(n.branch)} / {n.title} (총 {leaves}개)")
+        elif args.cmd == "refresh":
+            update_readme(root, scan(root))
+            print("README를 다시 그렸어요.")
+        else:
+            studying = [n for n in scan(root) if n.status != "done"]
+            if not studying:
+                print("공부 중인 노트가 없어요.")
+            for n in studying:
+                print(f"{n.path.as_posix()}  ({' / '.join(n.branch)} · {n.title} · {n.started} 시작)")
+    except GrowError as e:
+        print(f"오류: {e}", file=sys.stderr)
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
