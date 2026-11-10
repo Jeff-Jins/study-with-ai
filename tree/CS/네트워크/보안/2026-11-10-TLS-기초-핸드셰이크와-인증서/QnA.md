@@ -88,3 +88,39 @@
     인증서는 신뢰하도록 지정했지만, SAN에 `127.0.0.1`이 없어서 실패한다. `-addext "subjectAltName=DNS:localhost,IP:127.0.0.1"`로 다시 만들면 통과한다.
   - **연결 고리**: SNI(어느 이름으로 접속하는지 알림) → 서버가 그 이름의 인증서 선택 → 클라이언트가 SAN으로 이름 확인. `lab/tls_client.py`의 `server_hostname=host`가 SNI와 SAN 검증에 함께 쓰이는 이유다.
 - 더 보기: README [인증서는 왜 믿을 수 있나](README.md#인증서는-왜-믿을-수-있나--신뢰-체인) ③번, 위의 "SNI는 뭐야?"
+
+### Q. `echo | openssl s_client -connect example.com:443 -servername example.com -brief` 를 하나씩 뜯어서 설명해줘
+- 날짜: 2026-11-10
+- 답: 조각별로 보면 이렇다. 아래 내용은 모두 `man openssl-s_client` 확인과 직접 실행으로 검증했다.
+
+  | 조각 | 뜻 |
+  |---|---|
+  | `echo` | 빈 줄 하나를 출력하고 끝난다. 끝나면서 **EOF(입력 끝)** 신호가 간다. |
+  | `\|` | 파이프. 왼쪽의 출력을 오른쪽 명령의 **표준입력(stdin)**으로 넘긴다. |
+  | `openssl` | 암호 도구 모음. 뒤에 하위 명령을 붙여 쓴다 (`x509`, `genpkey`, `s_server` 등). |
+  | `s_client` | **TLS 클라이언트**. 서버에 TCP로 붙고 TLS 핸드셰이크까지 해 준다. 브라우저에서 화면만 뺀 것이라고 생각하면 된다. |
+  | `-connect example.com:443` | 접속할 `호스트:포트`. DNS로 IP를 찾아 TCP 연결을 연다. 443은 HTTPS 기본 포트다. |
+  | `-servername example.com` | ClientHello의 **SNI** 값. 사실 OpenSSL 1.1.1부터는 생략해도 `-connect`의 도메인이 자동으로 들어간다. 그래서 IP로 접속하거나 다른 이름을 보내고 싶을 때 주로 쓴다. 이번 명령에서는 "명시적으로 보여주기" 용도다. |
+  | `-brief` | 인증서 원문, 세션 정보 같은 긴 출력 대신 **요약 몇 줄**만 보여준다. |
+
+  **왜 `echo |`를 붙이나?** `s_client`는 연결이 되면 키보드 입력을 기다린다. 입력한 내용을 암호화해서 서버로 보내는 대화 모드이기 때문이다. `echo |`를 붙이면 빈 줄을 보내고 곧바로 EOF가 오고, s_client는 입력이 끝났으니 연결을 닫고 종료한다. 그래서 **"핸드셰이크만 하고 바로 끝내기"**가 된다. 빼면 커서가 멈춘 채 기다리고, `Ctrl+C`로 빠져나와야 한다.
+
+  **출력 한 줄씩 읽기** (example.com 실제 결과):
+  ```
+  Connecting to 104.20.23.154           ← DNS로 찾은 IP에 TCP 연결 시도
+  CONNECTION ESTABLISHED                ← TCP + TLS 핸드셰이크 성공
+  Protocol version: TLSv1.3             ← 합의한 TLS 버전
+  Ciphersuite: TLS_AES_256_GCM_SHA384   ← 레코드 암호화는 AES-256-GCM(AEAD), 키 파생은 SHA-384
+  Peer certificate: CN=example.com      ← 서버 인증서의 주체
+  Hash used: SHA256                     ┐ CertificateVerify 서명에 쓴 알고리즘:
+  Signature type: ecdsa_secp256r1_sha256┘ 서버가 ECDSA(P-256) 키로 서명했다
+  Verification: OK                      ← 인증서 체인을 신뢰 루트까지 검증 성공
+  Negotiated TLS1.3 group: X25519MLKEM768 ← 키 교환(ECDHE) 그룹. X25519 + 양자내성 ML-KEM 하이브리드
+  DONE                                  ← EOF를 받아 연결 종료
+  ```
+
+  **알아두면 좋은 함정 3가지 (직접 확인함)**
+  1. **`-brief` 요약은 stderr로 나온다.** 그래서 `| grep`으로 거르려면 `2>&1`을 붙여야 한다. 예: `echo | openssl s_client -connect example.com:443 -brief 2>&1 | grep Protocol`
+  2. **검증에 실패해도 연결은 계속된다.** 자체 서명 서버에 붙으면 `Verification error: self-signed certificate`가 찍히지만 `CONNECTION ESTABLISHED`이고 종료 코드도 0이다. s_client는 진단 도구라서 일부러 그렇게 동작한다. 실패 시 끊게 하려면 `-verify_return_error`를 붙인다.
+  3. **`Verification: OK`는 호스트 이름(SAN)까지 확인한 결과가 아니다.** `-servername evil.com`으로 localhost 인증서 서버에 붙어도 `Verification: OK`가 나왔다. 이름까지 보려면 `-verify_hostname example.com`을 붙여야 하고, 그러면 `Verification error: hostname mismatch`가 나온다. 브라우저, curl, Python `ssl.create_default_context()`는 이름 검증을 기본으로 한다.
+- 더 보기: `man openssl-s_client`, 위의 "SNI는 뭐야?", "SAN이 뭐야?", "AEAD 암호가 뭐야?", "DHE는 뭐야?"
