@@ -37,3 +37,27 @@
   - **코드에서는**: `lab/tls_client.py`의 `wrap_socket(raw, server_hostname=host)`가 SNI를 넣는다. 이 값은 인증서의 SAN과 맞는지 검증하는 데에도 쓰인다.
   - **한계(프라이버시)**: ClientHello는 평문이라서 네트워크 중간에서 "이 사람이 어느 사이트에 가는지"가 SNI로 보인다. 내용은 암호화돼도 목적지 도메인은 드러나는 것이다. 이를 숨기려는 후속 기술이 **ECH(Encrypted Client Hello)**다.
 - 더 보기: README [개념 설명 > 어떻게 동작하나](README.md#어떻게-동작하나--tls-13-핸드셰이크-1-rtt)의 ClientHello 설명
+
+### Q. DHE는 뭐야?
+- 날짜: 2026-11-10
+- 답: **DHE = Diffie-Hellman Ephemeral.** 서로 비밀을 한 번도 보낸 적 없는 두 사람이, **공개된 값만 주고받아서** 같은 비밀키를 만들어 내는 방법(Diffie-Hellman 키 교환)이다. 여기에 **연결할 때마다 새 키를 쓰고 버린다(ephemeral, 일회용)**는 조건이 붙은 것이 DHE다.
+  - **원리 (작은 숫자로)**: 모두가 아는 값 `p=23, g=5`
+    ```
+    클라이언트: 비밀 a=6  → 공개 A = 5^6  mod 23 = 8   ──보냄──▶
+    서버:       비밀 b=15 → 공개 B = 5^15 mod 23 = 19  ◀──보냄──
+    클라이언트: B^a mod 23 = 19^6  mod 23 = 2
+    서버:       A^b mod 23 = 8^15  mod 23 = 2   → 둘 다 2! (공유 비밀)
+    ```
+    도청자는 `23, 5, 8, 19`를 다 보지만, 여기서 a나 b를 알아내는 문제(이산 로그)가 실제 크기의 숫자에서는 사실상 풀 수 없을 만큼 어렵다.
+  - **ECDHE**: 같은 아이디어를 타원곡선 위에서 하는 버전이다. 키가 짧고 빨라서 요즘은 대부분 이것을 쓴다. 실습에서 본 `X25519`가 ECDHE 그룹이고, `X25519MLKEM768`은 여기에 양자내성 알고리즘을 섞은 하이브리드다.
+  - **TLS 1.3에서의 위치**: ClientHello/ServerHello의 `key_share`가 바로 위의 공개값(A, B)이다. 둘 다 받으면 공유 비밀이 생기고, 여기서 HKDF로 암호화 키를 뽑는다. 그래서 ServerHello 다음부터 암호화가 가능하다.
+  - **"Ephemeral"이 중요한 이유 — 전방 비밀성(forward secrecy)**: TLS 1.2의 RSA 키 교환은 서버의 고정 개인키로 세션 키를 풀었다. 그래서 나중에 그 개인키가 털리면, 녹화해 둔 **과거 트래픽까지 전부** 풀렸다. DHE는 매 연결의 a, b를 쓰고 바로 버리므로, 서버 개인키가 털려도 과거 대화는 안전하다. TLS 1.3이 키 교환을 (EC)DHE만 허용하는 이유다.
+  - **그럼 서버 인증서의 개인키는 뭐에 쓰나**: 키 교환이 아니라 **CertificateVerify 서명**(내가 진짜 서버라는 증명)에만 쓴다. "키 합의(DHE)"와 "신원 증명(인증서)"이 분리돼 있다.
+  - **직접 해 보기**: OpenSSL로 X25519 키 쌍 두 개를 만들고, 서로의 공개키로 공유 비밀을 계산하면 같은 값이 나온다(실제로 돌려서 같은 값이 나오는 것을 확인했다).
+    ```bash
+    openssl genpkey -algorithm X25519 -out alice.pem && openssl pkey -in alice.pem -pubout -out alice.pub
+    openssl genpkey -algorithm X25519 -out bob.pem   && openssl pkey -in bob.pem   -pubout -out bob.pub
+    openssl pkeyutl -derive -inkey alice.pem -peerkey bob.pub   | xxd -p -c64
+    openssl pkeyutl -derive -inkey bob.pem   -peerkey alice.pub | xxd -p -c64   # 위와 같은 값!
+    ```
+- 더 보기: README [어떻게 동작하나](README.md#어떻게-동작하나--tls-13-핸드셰이크-1-rtt) 2번(ServerHello)과 "TLS 1.2와의 차이"
