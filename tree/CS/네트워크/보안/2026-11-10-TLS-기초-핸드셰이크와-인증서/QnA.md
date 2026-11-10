@@ -61,3 +61,30 @@
     openssl pkeyutl -derive -inkey bob.pem   -peerkey alice.pub | xxd -p -c64   # 위와 같은 값!
     ```
 - 더 보기: README [어떻게 동작하나](README.md#어떻게-동작하나--tls-13-핸드셰이크-1-rtt) 2번(ServerHello)과 "TLS 1.2와의 차이"
+
+### Q. SAN이 뭐야?
+- 날짜: 2026-11-10
+- 답: **SAN = Subject Alternative Name.** 인증서 안에 들어 있는 "**이 인증서를 쓸 수 있는 이름 목록**"이다. X.509 인증서의 확장 필드이고, 도메인 이름(DNS)이나 IP 주소를 여러 개 넣을 수 있다.
+  - **실제 example.com 인증서의 SAN**:
+    ```
+    $ openssl x509 -in ex.pem -noout -ext subjectAltName
+    X509v3 Subject Alternative Name:
+        DNS:example.com, DNS:*.example.com
+    ```
+    인증서 하나로 `example.com`과 그 서브도메인을 모두 커버한다.
+  - **클라이언트가 하는 일**: 접속한 주소(= SNI로 보낸 이름)가 SAN 목록에 **있는지** 확인하고, 없으면 연결을 끊는다. 서명 체인이 완벽해도 이름이 다르면 실패한다. 남의 사이트용으로 정당하게 발급된 인증서를 가로채서 다른 도메인에 쓰는 것을 막는 장치다.
+  - **CN과의 관계**: 예전에는 인증서의 주체 CN(Common Name)에 도메인을 하나 적었다. 지금은 브라우저와 대부분의 TLS 라이브러리가 호스트 이름을 검증할 때 **SAN만 본다**. CN은 사람이 읽는 표시용에 가깝다.
+  - **와일드카드 규칙**: `*.example.com`은 **한 단계**만 대신한다 (`openssl x509 -checkhost`로 확인):
+    ```
+    example.com      → match      (SAN에 따로 적혀 있어서)
+    www.example.com  → match      (*.example.com)
+    a.b.example.com  → NOT match  (* 는 점을 넘지 못함)
+    ```
+  - **이름이 안 맞을 때의 실제 오류**: 실습 4번의 `localhost` 인증서(SAN=`DNS:localhost`)로 띄운 서버에 IP로 접속하면:
+    ```
+    $ curl --cacert cert.pem https://127.0.0.1:8443/
+    curl: (60) SSL: no alternative certificate subject name matches target ipv4 address '127.0.0.1'
+    ```
+    인증서는 신뢰하도록 지정했지만, SAN에 `127.0.0.1`이 없어서 실패한다. `-addext "subjectAltName=DNS:localhost,IP:127.0.0.1"`로 다시 만들면 통과한다.
+  - **연결 고리**: SNI(어느 이름으로 접속하는지 알림) → 서버가 그 이름의 인증서 선택 → 클라이언트가 SAN으로 이름 확인. `lab/tls_client.py`의 `server_hostname=host`가 SNI와 SAN 검증에 함께 쓰이는 이유다.
+- 더 보기: README [인증서는 왜 믿을 수 있나](README.md#인증서는-왜-믿을-수-있나--신뢰-체인) ③번, 위의 "SNI는 뭐야?"
