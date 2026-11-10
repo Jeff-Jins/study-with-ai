@@ -108,7 +108,7 @@ sequenceDiagram
     curl https://localhost:8443/                      # ①
     curl --cacert cert.pem https://localhost:8443/    # ②
     ```
-  - 확인: ①은 `curl: (60) SSL certificate problem: self-signed certificate`로 실패하고, ②는 성공해서 출력에 `TLSv1.3`이 보이면 성공. ①과 ②의 차이를 "신뢰 체인" 관점에서 한 문장으로 설명해 보기
+  - 확인: ①은 `curl: (60) ... self-signed certificate`로 실패하고, ②는 성공해서 출력에 `TLSv1.3`이 보이면 성공. ①과 ②의 차이를 "신뢰 체인" 관점에서 한 문장으로 설명해 보기
 - [ ] 버전 협상이 실패하는 경우 보기
   - 실행: 위 서버(`-tls1_3`)를 띄운 채 `echo | openssl s_client -connect localhost:8443 -tls1_2`
   - 확인: `alert protocol version` 오류가 나면 성공. 왜 실패하는지(서버가 1.3만, 클라이언트는 1.2만 제시) 설명할 수 있으면 완료
