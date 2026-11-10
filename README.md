@@ -20,10 +20,13 @@ mindmap
 <details>
 <summary>🍃 잎 바로가기 (펼치기)</summary>
 
-- 🌿 CS
-  - 🌿 네트워크
-    - 🌿 보안
-      - 🍃 [TLS 기초 - 핸드셰이크와 인증서](tree/CS/%EB%84%A4%ED%8A%B8%EC%9B%8C%ED%81%AC/%EB%B3%B4%EC%95%88/2026-11-10-TLS-%EA%B8%B0%EC%B4%88-%ED%95%B8%EB%93%9C%EC%85%B0%EC%9D%B4%ED%81%AC%EC%99%80-%EC%9D%B8%EC%A6%9D%EC%84%9C/README.md) · 2026-11-10
+<pre>
+🌳 study-with-ai
+└── CS
+    └── 네트워크
+        └── 보안
+            └── 🍃 <a href="tree/CS/%EB%84%A4%ED%8A%B8%EC%9B%8C%ED%81%AC/%EB%B3%B4%EC%95%88/2026-11-10-TLS-%EA%B8%B0%EC%B4%88-%ED%95%B8%EB%93%9C%EC%85%B0%EC%9D%B4%ED%81%AC%EC%99%80-%EC%9D%B8%EC%A6%9D%EC%84%9C/README.md">TLS 기초 - 핸드셰이크와 인증서</a> · 2026-11-10
+</pre>
 
 </details>
 

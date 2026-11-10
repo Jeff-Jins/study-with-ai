@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import html
 import os
 import re
 import subprocess
@@ -165,14 +166,16 @@ def _emit(node: _Branch, indent: int, out: list[str]) -> None:
         out.append(pad + "🍃 " + mermaid_text(leaf.title))
 
 
-def _emit_links(node: _Branch, depth: int, out: list[str]) -> None:
-    """Mermaid 노드는 GitHub에서 클릭이 막혀 있어서, 같은 나무를 링크 목록으로도 그린다."""
-    pad = "  " * depth
-    for name in sorted(node.children):
-        out.append(f"{pad}- 🌿 {md_escape(name)}")
-        _emit_links(node.children[name], depth + 1, out)
-    for leaf in node.leaves:
-        out.append(f"{pad}- 🍃 [{md_escape(leaf.title)}]({_link(leaf)}) · {leaf.done}")
+def _emit_links(node: _Branch, prefix: str, out: list[str]) -> None:
+    """Mermaid 노드는 GitHub에서 클릭이 막혀 있어서, 같은 나무를 링크 달린 tree 모양(<pre>)으로도 그린다."""
+    items = [(name, node.children[name]) for name in sorted(node.children)] + [(None, n) for n in node.leaves]
+    for i, (name, item) in enumerate(items):
+        last = i == len(items) - 1
+        out.append(prefix + ("└── " if last else "├── ") + (
+            html.escape(name) if name is not None else
+            f'🍃 <a href="{_link(item)}">{html.escape(item.title)}</a> · {item.done}'))
+        if name is not None:
+            _emit_links(item, prefix + ("    " if last else "│   "), out)
 
 
 def render_block(notes: list[Note]) -> str:
@@ -198,9 +201,9 @@ def render_block(notes: list[Note]) -> str:
     _emit(top, 4, out)
     out += ["```", ""]
     if done:
-        out += ["<details>", "<summary>🍃 잎 바로가기 (펼치기)</summary>", ""]
-        _emit_links(top, 0, out)
-        out += ["", "</details>", ""]
+        out += ["<details>", "<summary>🍃 잎 바로가기 (펼치기)</summary>", "", "<pre>", "🌳 study-with-ai"]
+        _emit_links(top, "", out)
+        out += ["</pre>", "", "</details>", ""]
     else:
         out += ["아직 잎이 없어요. 첫 공부를 마치면 여기에 🍃가 돋아나요.", ""]
 
