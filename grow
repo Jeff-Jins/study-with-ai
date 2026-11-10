@@ -278,6 +278,8 @@ NOTE_TEMPLATE = """<!-- supervised: status=studying started={today} -->
 ## 참고자료
 
 ## TODO 실습
+
+## 질문과 답
 """
 
 

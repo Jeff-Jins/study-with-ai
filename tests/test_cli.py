@@ -65,7 +65,7 @@ class CliTest(unittest.TestCase):
         self.assertTrue(text.startswith(
             f"<!-- supervised: status=studying started={self.today} -->\n"
             "# 3-way handshake\n\n> 가지: CS / 네트워크\n"))
-        for h in ("## 개념 설명", "## 핵심 요약", "## 참고자료", "## TODO 실습"):
+        for h in ("## 개념 설명", "## 핵심 요약", "## 참고자료", "## TODO 실습", "## 질문과 답"):
             self.assertIn(h, text)
         self.assertEqual(self.subjects(), ["🌱 start: CS / 네트워크 / 3-way handshake"])
         self.assertIn("[3-way handshake](", self.root_readme())
