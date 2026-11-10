@@ -83,3 +83,137 @@ def title_of(text: str, fallback: str) -> str:
 
 def unchecked_todos(text: str) -> list[str]:
     return [m.group(2) for m in TODO_RE.finditer(text) if m.group(1) == " "]
+
+
+# ── 나무 스캔 ────────────────────────────────────────────────────
+
+
+@dataclass
+class Note:
+    path: Path  # 노트 폴더 (root 기준 상대 경로, tree/...)
+    branch: tuple[str, ...]
+    title: str
+    status: str  # "studying" | "done"
+    started: str
+    done: str | None
+
+
+def scan(root: Path) -> list[Note]:
+    tree = root / TREE_DIR
+    if not tree.is_dir():
+        return []
+    notes = []
+    for readme in sorted(tree.rglob("README.md")):
+        text = readme.read_text(encoding="utf-8")
+        meta = parse_meta(text)
+        if "status" not in meta:
+            continue
+        rel = readme.parent.relative_to(root)
+        notes.append(Note(
+            path=rel,
+            branch=rel.parts[1:-1],
+            title=title_of(text, rel.name),
+            status=meta["status"],
+            started=meta.get("started", ""),
+            done=meta.get("done"),
+        ))
+    return notes
+
+
+# ── README 렌더링 ────────────────────────────────────────────────
+
+START_MARK = "<!-- grow:start -->"
+END_MARK = "<!-- grow:end -->"
+README_HEADER = (
+    "# 🌳 study-with-ai\n\n"
+    "AI에게 지도받으며(supervised) 공부하고, 공부를 마칠 때마다 지식나무에 잎을 하나씩 쌓습니다.\n\n"
+)
+
+
+@dataclass
+class _Branch:
+    children: dict[str, "_Branch"] = field(default_factory=dict)
+    leaves: list[str] = field(default_factory=list)
+
+
+def mermaid_text(s: str) -> str:
+    s = re.sub(r'[()\[\]{}<>"`]', "", s)
+    s = re.sub(r"\s+", " ", s).strip()
+    return s or "?"
+
+
+def md_escape(s: str) -> str:
+    return re.sub(r"([\[\]|])", r"\\\1", s)
+
+
+def _link(n: Note) -> str:
+    return quote(n.path.as_posix() + "/README.md")
+
+
+def _emit(node: _Branch, indent: int, out: list[str]) -> None:
+    pad = " " * indent
+    for name in sorted(node.children):
+        out.append(pad + mermaid_text(name))
+        _emit(node.children[name], indent + 2, out)
+    for leaf in node.leaves:
+        out.append(pad + "🍃 " + mermaid_text(leaf))
+
+
+def render_block(notes: list[Note]) -> str:
+    done = sorted((n for n in notes if n.status == "done"), key=lambda n: (n.done or "", str(n.path)))
+    studying = [n for n in notes if n.status != "done"]
+    branches = {n.branch[:i] for n in done for i in range(1, len(n.branch) + 1)}
+    dates = [d for n in notes for d in (n.started, n.done) if d]
+    last = max(dates) if dates else "-"
+
+    out = [
+        START_MARK, "",
+        f"> 🍃 잎 **{len(done)}**개 · 🌿 가지 **{len(branches)}**개 · "
+        f"🌱 공부 중 **{len(studying)}**개 · 📅 최근 공부 {last}",
+        "", "## 🌳 지식나무", "",
+        "```mermaid", "mindmap", "  root((🌳 study-with-ai))",
+    ]
+    top = _Branch()
+    for n in done:
+        node = top
+        for b in n.branch:
+            node = node.children.setdefault(b, _Branch())
+        node.leaves.append(n.title)
+    _emit(top, 4, out)
+    out += ["```", ""]
+    if not done:
+        out += ["아직 잎이 없어요. 첫 공부를 마치면 여기에 🍃가 돋아나요.", ""]
+
+    out += ["## 🌱 공부 중", ""]
+    if studying:
+        for n in studying:
+            out.append(f"- [{md_escape(n.title)}]({_link(n)}) · {' / '.join(n.branch)} · {n.started} 시작")
+    else:
+        out.append("지금 공부 중인 노트가 없어요.")
+
+    out += ["", "## 🍃 최근 쌓인 잎", ""]
+    recent = list(reversed(done))[:10]
+    if recent:
+        out += ["| 날짜 | 가지 | 노트 |", "|---|---|---|"]
+        for n in recent:
+            out.append(f"| {n.done} | {md_escape(' / '.join(n.branch))} | [{md_escape(n.title)}]({_link(n)}) |")
+    else:
+        out.append("아직 없어요.")
+    out += ["", END_MARK]
+    return "\n".join(out)
+
+
+def update_readme(root: Path, notes: list[Note]) -> Path:
+    path = root / "README.md"
+    block = render_block(notes)
+    if path.exists():
+        text = path.read_text(encoding="utf-8")
+        s, e = text.find(START_MARK), text.find(END_MARK)
+        if s != -1 and e > s:
+            text = text[:s] + block + text[e + len(END_MARK):]
+        else:
+            text = text.rstrip("\n") + "\n\n" + block + "\n"
+    else:
+        text = README_HEADER + block + "\n"
+    path.write_text(text, encoding="utf-8")
+    return path
