@@ -1,0 +1,85 @@
+#!/usr/bin/env python3
+"""grow — study-with-ai 지식나무를 키우는 스크립트.
+
+사용법:
+  ./grow start "<가지 경로>" "<제목>"   학습 노트 만들기 (🌱 공부 중)
+  ./grow done "<노트 경로>" [--force]   나무에 잎 추가 + 커밋 + push (🍃)
+  ./grow refresh                      루트 README 다시 그리기
+  ./grow list                         공부 중인 노트 보기
+"""
+from __future__ import annotations
+
+import argparse
+import datetime as dt
+import re
+import subprocess
+import sys
+from dataclasses import dataclass, field
+from pathlib import Path
+from urllib.parse import quote
+
+DEFAULT_ROOT = Path(__file__).resolve().parent
+TREE_DIR = "tree"
+FORBIDDEN = re.compile(r'[\\/:*?"<>|#%]')
+META_RE = re.compile(r"<!--\s*supervised:(.*?)-->")
+TODO_RE = re.compile(r"^[ \t]*[-*] \[( |x|X)\] (.+?)[ \t]*$", re.MULTILINE)
+
+
+class GrowError(Exception):
+    """사용자에게 그대로 보여줄 오류."""
+
+
+# ── 노트 텍스트 파싱 ─────────────────────────────────────────────
+
+
+def slugify(title: str) -> str:
+    s = FORBIDDEN.sub("", title).strip()
+    s = re.sub(r"\s+", "-", s)
+    s = re.sub(r"-{2,}", "-", s).strip("-.")
+    if not s:
+        raise GrowError(f"제목으로 폴더 이름을 만들 수 없습니다: {title!r}")
+    return s
+
+
+def parse_branch(branch: str) -> tuple[str, ...]:
+    parts = []
+    for raw in re.split(r"[/\\]", branch):
+        seg = re.sub(r"\s+", " ", FORBIDDEN.sub("", raw)).strip()
+        if not seg:
+            continue
+        if set(seg) == {"."}:
+            raise GrowError("가지 이름에 '.'이나 '..'은 쓸 수 없습니다")
+        parts.append(seg)
+    if not parts:
+        raise GrowError('가지를 하나 이상 지정하세요. 예: "CS/네트워크"')
+    return tuple(parts)
+
+
+def parse_meta(text: str) -> dict[str, str]:
+    m = META_RE.search(text)
+    if not m:
+        return {}
+    meta = {}
+    for token in m.group(1).split():
+        if "=" in token:
+            key, value = token.split("=", 1)
+            meta[key] = value
+    return meta
+
+
+def set_meta(text: str, meta: dict[str, str]) -> str:
+    line = "<!-- supervised: " + " ".join(f"{k}={v}" for k, v in meta.items()) + " -->"
+    if META_RE.search(text):
+        return META_RE.sub(lambda _m: line, text, count=1)
+    return line + "\n" + text
+
+
+def title_of(text: str, fallback: str) -> str:
+    for line in text.splitlines():
+        if line.startswith("# "):
+            return line[2:].strip()
+    return fallback
+
+
+def unchecked_todos(text: str) -> list[str]:
+    return [m.group(2) for m in TODO_RE.finditer(text) if m.group(1) == " "]
