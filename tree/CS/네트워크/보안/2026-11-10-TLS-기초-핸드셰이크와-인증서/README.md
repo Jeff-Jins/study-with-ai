@@ -1,4 +1,4 @@
-<!-- supervised: status=studying started=2026-11-10 -->
+<!-- supervised: status=done started=2026-11-10 done=2026-11-10 -->
 # TLS 기초 - 핸드셰이크와 인증서
 
 > 가지: CS / 네트워크 / 보안
@@ -87,16 +87,16 @@ sequenceDiagram
 - [MDN — Transport Layer Security](https://developer.mozilla.org/en-US/docs/Web/Security/Transport_Layer_Security) — 웹 개발자 관점의 TLS 개요, 버전 현황, HSTS
 
 ## TODO 실습
-- [ ] 실제 사이트에 TLS로 붙어서 협상 결과 보기
+- [x] 실제 사이트에 TLS로 붙어서 협상 결과 보기
   - 실행: `echo | openssl s_client -connect example.com:443 -servername example.com -brief`
   - 확인: 출력에 `Protocol version: TLSv1.3`, `Ciphersuite: TLS_AES_...`, `Verification: OK`가 보이면 성공. `Negotiated TLS1.3 group`이 무엇인지도 적어 보기
-- [ ] 핸드셰이크 메시지 순서를 직접 관찰하기
+- [x] 핸드셰이크 메시지 순서를 직접 관찰하기
   - 실행: `echo | openssl s_client -connect example.com:443 -servername example.com -msg 2>&1 | grep -E '^(<<<|>>>)'`
   - 확인: `ClientHello → ServerHello → EncryptedExtensions → Certificate → CertificateVerify → Finished → Finished` 순서가 보이고, 위 다이어그램의 어느 단계인지 각각 말할 수 있으면 성공
-- [ ] Python으로 TLS 클라이언트를 돌리고 인증서 읽기
+- [x] Python으로 TLS 클라이언트를 돌리고 인증서 읽기
   - 실행: `python3 lab/tls_client.py example.com` (노트 폴더에서)
   - 확인: 버전·암호군·발급자·SAN이 출력되면 성공. 이어서 `python3 lab/tls_client.py expired.badssl.com`을 실행해 `certificate has expired` 오류가 나는지 보고, 코드의 어느 줄이 검증을 켜는지 찾기. 마지막으로 파일 아래 TODO 주석을 풀어 HTTP 응답 첫 줄(`HTTP/1.1 200 OK` 등)이 찍히게 하기
-- [ ] 자체 서명 인증서로 내 TLS 서버를 띄우고 "신뢰"를 체험하기
+- [x] 자체 서명 인증서로 내 TLS 서버를 띄우고 "신뢰"를 체험하기
   - 실행 (lab 폴더에서, 터미널 2개):
     ```bash
     # 터미널 1: 인증서 만들고 서버 띄우기
@@ -109,7 +109,7 @@ sequenceDiagram
     curl --cacert cert.pem https://localhost:8443/    # ②
     ```
   - 확인: ①은 `curl: (60) ... self-signed certificate`로 실패하고, ②는 성공해서 출력에 `TLSv1.3`이 보이면 성공. ①과 ②의 차이를 "신뢰 체인" 관점에서 한 문장으로 설명해 보기
-- [ ] 버전 협상이 실패하는 경우 보기
+- [x] 버전 협상이 실패하는 경우 보기
   - 실행: 위 서버(`-tls1_3`)를 띄운 채 `echo | openssl s_client -connect localhost:8443 -tls1_2`
   - 확인: `alert protocol version` 오류가 나면 성공. 왜 실패하는지(서버가 1.3만, 클라이언트는 1.2만 제시) 설명할 수 있으면 완료
 
