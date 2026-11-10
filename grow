@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import os
 import re
 import subprocess
 import sys
@@ -104,7 +105,12 @@ def scan(root: Path) -> list[Note]:
         return []
     notes = []
     for readme in sorted(tree.rglob("README.md")):
-        text = readme.read_text(encoding="utf-8")
+        if "lab" in readme.parent.relative_to(tree).parts:
+            continue
+        try:
+            text = readme.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            continue
         meta = parse_meta(text)
         if "status" not in meta:
             continue
@@ -208,11 +214,15 @@ def update_readme(root: Path, notes: list[Note]) -> Path:
     block = render_block(notes)
     if path.exists():
         text = path.read_text(encoding="utf-8")
-        s, e = text.find(START_MARK), text.find(END_MARK)
-        if s != -1 and e > s:
+        s = text.find(START_MARK)
+        e = text.find(END_MARK, s) if s != -1 else -1
+        if s != -1 and e != -1:
             text = text[:s] + block + text[e + len(END_MARK):]
-        else:
+        elif s == -1 and END_MARK not in text:
             text = text.rstrip("\n") + "\n\n" + block + "\n"
+        else:
+            raise GrowError("README의 grow 마커가 깨졌어요. <!-- grow:start --> 와 "
+                            "<!-- grow:end --> 를 한 쌍으로 고친 뒤 다시 실행하세요.")
     else:
         text = README_HEADER + block + "\n"
     path.write_text(text, encoding="utf-8")
@@ -240,7 +250,14 @@ def push(root: Path) -> bool:
         print("ℹ️  remote가 없어 push를 건너뜁니다. (git remote add origin <URL>)")
         return False
     remote = "origin" if "origin" in remotes else remotes[0]
-    r = _git(root, "push", "-u", remote, "HEAD", check=False)
+    try:
+        r = subprocess.run(
+            ["git", "-C", str(root), "push", "-u", remote, "HEAD"],
+            capture_output=True, text=True, timeout=120,
+            env={**os.environ, "GIT_TERMINAL_PROMPT": "0"})
+    except subprocess.TimeoutExpired:
+        print("⚠️  push 실패 (커밋은 남아 있어요):\n시간 초과 (120초)", file=sys.stderr)
+        return False
     if r.returncode != 0:
         print(f"⚠️  push 실패 (커밋은 남아 있어요):\n{r.stderr.strip()}", file=sys.stderr)
         return False
@@ -268,7 +285,10 @@ def start(root: Path, branch: str, title: str, today: str) -> Path:
     root = Path(root).resolve()
     parts = parse_branch(branch)
     title = " ".join(title.split())
-    note_dir = root / TREE_DIR / Path(*parts) / f"{today}-{slugify(title)}"
+    slug = slugify(title)
+    if len(slug.encode("utf-8")) > 200:
+        slug = slug.encode("utf-8")[:200].decode("utf-8", "ignore").rstrip("-.")
+    note_dir = root / TREE_DIR / Path(*parts) / f"{today}-{slug}"
     if note_dir.exists():
         raise GrowError(f"이미 있는 노트입니다: {note_dir.relative_to(root)}")
     note_dir.mkdir(parents=True)

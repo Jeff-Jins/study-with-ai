@@ -39,6 +39,22 @@ class ScanTest(TmpRootCase):
     def test_without_tree_dir(self):
         self.assertEqual(grow.scan(self.root), [])
 
+    def test_skips_readme_inside_lab(self):
+        d = write_note(self.root, "CS/2026-11-10-tcp", "TCP", "status=studying started=2026-11-10")
+        lab = d / "lab"
+        lab.mkdir()
+        (lab / "README.md").write_text(
+            "<!-- supervised: status=done started=2026-11-10 -->\n# 예제\n", encoding="utf-8")
+        notes = grow.scan(self.root)
+        self.assertEqual(len(notes), 1)
+        self.assertEqual(notes[0].title, "TCP")
+
+    def test_skips_non_utf8_readme(self):
+        write_note(self.root, "CS/2026-11-10-tcp", "TCP", "status=studying started=2026-11-10")
+        bad = self.root / "tree" / "CS" / "README.md"
+        bad.write_bytes(b"\xff\xfe\x00bad")
+        self.assertEqual(len(grow.scan(self.root)), 1)
+
 
 def sample_notes():
     N = grow.Note
@@ -122,6 +138,22 @@ class UpdateReadmeTest(TmpRootCase):
         text = self.read()
         self.assertTrue(text.startswith("# 손으로 쓴 README\n\n<!-- grow:start -->"))
         self.assertEqual(text.count(grow.START_MARK), 1)
+
+    def _assert_broken(self, content):
+        path = self.root / "README.md"
+        path.write_text(content, encoding="utf-8")
+        with self.assertRaises(grow.GrowError):
+            grow.update_readme(self.root, [])
+        self.assertEqual(self.read(), content)
+
+    def test_end_before_start_raises_and_leaves_file(self):
+        self._assert_broken("앞\n<!-- grow:end -->\n중간\n<!-- grow:start -->\n뒤\n")
+
+    def test_start_without_end_raises_and_leaves_file(self):
+        self._assert_broken("앞\n<!-- grow:start -->\n사용자 글\n")
+
+    def test_end_without_start_raises_and_leaves_file(self):
+        self._assert_broken("앞\n<!-- grow:end -->\n")
 
 
 if __name__ == "__main__":

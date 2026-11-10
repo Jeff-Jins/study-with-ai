@@ -70,6 +70,14 @@ class CliTest(unittest.TestCase):
         self.assertEqual(self.subjects(), ["🌱 start: CS / 네트워크 / 3-way handshake"])
         self.assertIn("[3-way handshake](", self.root_readme())
 
+    def test_start_long_korean_title(self):
+        title = "가나다라마바사아자차" * 10
+        code, _, err = self.run_grow("start", "CS/네트워크", title)
+        self.assertEqual(code, 0, err)
+        names = [p.name for p in (self.root / "tree" / "CS" / "네트워크").iterdir()]
+        self.assertEqual(len(names), 1)
+        self.assertLessEqual(len(names[0].encode("utf-8")), 211)
+
     def test_start_same_note_twice_fails(self):
         self.start_note()
         code, _, err = self.run_grow("start", "CS/네트워크", "3-way handshake")
