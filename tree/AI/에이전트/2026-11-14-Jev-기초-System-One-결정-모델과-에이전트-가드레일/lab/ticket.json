@@ -1,0 +1,28 @@
+{
+  "model": "jev-latest",
+  "state": "Hi, I've been trying to connect my Stripe account for 3 days and the integration keeps failing.",
+  "questions": {
+    "urgent": {
+      "type": "noul",
+      "instructions": "Does this message express urgency?"
+    },
+    "team": {
+      "type": "choice",
+      "instructions": "Which team should handle this ticket?",
+      "criteria": {
+        "billing": "Payments, invoices, refunds, subscription charges",
+        "infra": "Integrations, API errors, outages, connection failures",
+        "unknown": "None of the above"
+      }
+    },
+    "severity": {
+      "type": "score",
+      "instructions": "How severe is the problem described?",
+      "criteria": [
+        "Cosmetic, no impact on the user's work",
+        "Degraded but the user can still proceed",
+        "Blocked, the user cannot proceed at all"
+      ]
+    }
+  }
+}
