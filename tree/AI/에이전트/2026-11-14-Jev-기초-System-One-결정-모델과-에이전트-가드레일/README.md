@@ -1,4 +1,4 @@
-<!-- supervised: status=studying started=2026-11-14 -->
+<!-- supervised: status=done started=2026-11-14 done=2026-11-14 -->
 # Jev 기초 - System One 결정 모델과 에이전트 가드레일
 
 > 가지: AI / 에이전트
